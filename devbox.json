@@ -1,0 +1,19 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.16.0/.schema/devbox.schema.json",
+  "packages": [
+    "python@3.13.3",
+    "uv@0.8",
+    "pre-commit@4.0"
+  ],
+  "env": {
+    "UV_PYTHON": "$PWD/.devbox/nix/profile/default/bin/python",
+    "VIRTUAL_ENV": "$PWD/.venv"
+  },
+  "shell": {
+    "init_hook": [
+      "uv venv",
+      "uv sync",
+      "pre-commit install"
+    ]
+  }
+}
