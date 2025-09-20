@@ -9,10 +9,10 @@ from pydantic_ai.output import OutputDataT
 from pydantic_ai.result import FinalResult
 from pydantic_ai.tools import AgentDepsT
 
-from pydantic_ai_chat_ui.messages import DataPartState
-from pydantic_ai_chat_ui.requests import ChatMessage
+from pydantic_ai_chat_ui.messages import ArtifactType, DataPartState, UIMessage
 from pydantic_ai_chat_ui.streamed_messages import (
   ArtifactPart,
+  ChatEvent,
   CodeArtifact,
   CodeArtifactData,
   DocumentArtifact,
@@ -37,7 +37,7 @@ def format_event(event: StreamedMessagePartBase) -> str:
 
 
 async def stream_results[D: AgentDepsT, R: OutputDataT](
-  user_message: ChatMessage,
+  user_message: UIMessage,
   agent: Agent[D, R],
   deps: D,
   message_history: list[pydantic_ai_messages.ModelMessage],
@@ -83,10 +83,12 @@ async def stream_results[D: AgentDepsT, R: OutputDataT](
                     yield format_event(
                       EventPart(
                         id=tool_call_id,
-                        data={
-                          "title": title,
-                          "status": DataPartState.PENDING,
-                        },
+                        data=ChatEvent(
+                          data={
+                            "title": title,
+                            "status": DataPartState.PENDING,
+                          }
+                        ),
                       )
                     )
 
@@ -110,13 +112,15 @@ async def stream_results[D: AgentDepsT, R: OutputDataT](
                   active_tool_ids[part.tool_call_id] = part.tool_name
                   yield format_event(
                     EventPart(
-                      id=event.tool_call_id,
-                      data={
-                        "title": get_tool_message(
-                          part.tool_name, DataPartState.PENDING, tool_messages
-                        ),
-                        "status": DataPartState.PENDING,
-                      },
+                      id=part.tool_call_id,
+                      data=ChatEvent(
+                        data={
+                          "title": get_tool_message(
+                            part.tool_name, DataPartState.PENDING, tool_messages
+                          ),
+                          "status": DataPartState.PENDING,
+                        }
+                      ),
                     )
                   )
 
@@ -128,27 +132,31 @@ async def stream_results[D: AgentDepsT, R: OutputDataT](
                   yield format_event(
                     EventPart(
                       id=tool_call_id,
-                      data={
-                        "title": get_tool_message(
-                          result.tool_name, DataPartState.SUCCESS, tool_messages
-                        ),
-                        "status": DataPartState.SUCCESS,
-                      },
+                      data=ChatEvent(
+                        data={
+                          "title": get_tool_message(
+                            result.tool_name, DataPartState.SUCCESS, tool_messages
+                          ),
+                          "status": DataPartState.SUCCESS,
+                        }
+                      ),
                     )
                   )
 
         elif Agent.is_end_node(node) and isinstance(node.data, FinalResult):
           if node.data.tool_call_id:
-            del active_tool_ids[node.data.tool_call_id]
+            active_tool_ids.pop(node.data.tool_call_id, None)
             yield format_event(
               EventPart(
                 id=node.data.tool_call_id,
-                data={
-                  "title": get_tool_message(
-                    node.data.tool_name, DataPartState.SUCCESS, tool_messages
-                  ),
-                  "status": DataPartState.SUCCESS,
-                },
+                data=ChatEvent(
+                  data={
+                    "title": get_tool_message(
+                      node.data.tool_name, DataPartState.SUCCESS, tool_messages
+                    ),
+                    "status": DataPartState.SUCCESS,
+                  }
+                ),
               )
             )
 
@@ -164,8 +172,10 @@ async def stream_results[D: AgentDepsT, R: OutputDataT](
             yield format_event(
               ArtifactPart(
                 id=node.data.tool_call_id,
-                data=ArtifactPart(
-                  CodeArtifact(data=node.data.output, createdAt=datetime.now())
+                data=CodeArtifact(
+                  data=node.data.output,
+                  created_at=int(datetime.now().timestamp()),
+                  type=ArtifactType.CODE,
                 ),
               )
             )
@@ -174,16 +184,18 @@ async def stream_results[D: AgentDepsT, R: OutputDataT](
             yield format_event(
               ArtifactPart(
                 id=node.data.tool_call_id,
-                data=ArtifactPart(
-                  DocumentArtifact(data=node.data.output, createdAt=datetime.now())
+                data=DocumentArtifact(
+                  data=node.data.output,
+                  created_at=int(datetime.now().timestamp()),
+                  type=ArtifactType.DOCUMENT,
                 ),
               )
             )
 
-        yield format_event(TextPartEnd(id=message_id))
-
-        active_tool_ids.clear()
-        message_streamed = False
+          # End of message: close text and reset per-message state
+          yield format_event(TextPartEnd(id=message_id))
+          active_tool_ids.clear()
+          message_streamed = False
 
       for message in agent_run.result.new_messages():
         if store_message_history is not None:
@@ -197,12 +209,14 @@ async def stream_results[D: AgentDepsT, R: OutputDataT](
       yield format_event(
         EventPart(
           id=tool_id,
-          data={
-            "title": get_tool_message(tool_name, DataPartState.ERROR, tool_messages),
-            "status": DataPartState.ERROR,
-            # TODO: with optional args/data
-          },
+          data=ChatEvent(
+            data={
+              "title": get_tool_message(tool_name, DataPartState.ERROR, tool_messages),
+              "status": DataPartState.ERROR,
+              # TODO: with optional args/data
+            }
+          ),
         )
       )
 
-    yield format_event(ErrorPart(errorText=str(e)))
+    yield format_event(ErrorPart(error_text=str(e)))

@@ -1,4 +1,12 @@
-from pydantic_ai_chat_ui.messages import DataPartState
+import enum
+
+
+@enum.verify(enum.UNIQUE)
+class DataPartState(enum.StrEnum):
+  PENDING = "pending"
+  SUCCESS = "success"
+  ERROR = "error"
+
 
 ToolMessages = dict[str, dict[DataPartState, str] | str]
 
@@ -11,6 +19,7 @@ def get_tool_message(
     DataPartState.SUCCESS: f"Called `{tool_name}` successfully",
     DataPartState.ERROR: f"Error while calling `{tool_name}`",
   }
+
   if tool_messages is None:
     return default_messages[state]
 
@@ -21,6 +30,6 @@ def get_tool_message(
   if isinstance(overridden_message, str):
     return overridden_message
   elif isinstance(overridden_message, dict):
-    return overridden_message[state]
+    return overridden_message.get(state, default_messages[state])
   else:
     raise NotImplementedError("Unsupported tool_message override")

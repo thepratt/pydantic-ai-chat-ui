@@ -1,7 +1,7 @@
 import enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from pydantic_ai_chat_ui.messages import ArtifactType
 
@@ -26,7 +26,7 @@ class StreamedMessagePartBase(BaseModel):
   id: str
 
   def __str__(self):
-    return self.model_dump_json()
+    return self.model_dump_json(by_alias=True)
 
 
 class TextPartStart(StreamedMessagePartBase):
@@ -61,6 +61,7 @@ class FileData(BaseModel):
 
 
 class Artifact[T, K: str](BaseModel):
+  model_config = ConfigDict(populate_by_name=True)
   created_at: int = Field(alias="createdAt")
   type: K
   data: T
@@ -122,5 +123,9 @@ class AnyPart(StreamedMessagePartBase):
 
 
 class ErrorPart(BaseModel):
+  model_config = ConfigDict(populate_by_name=True)
   type: Literal[StreamedPartType.ERROR] = StreamedPartType.ERROR
   error_text: str = Field(alias="errorText")
+
+  def __str__(self):
+    return self.model_dump_json(by_alias=True)

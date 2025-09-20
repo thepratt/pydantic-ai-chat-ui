@@ -10,14 +10,7 @@ from typing import Any, Literal
 from pydantic import BaseModel
 from pydantic_ai import messages as pydantic_ai_messages
 
-from pydantic_ai_chat_ui.tools import ToolMessages, get_tool_message
-
-
-@enum.verify(enum.UNIQUE)
-class DataPartState(enum.StrEnum):
-  PENDING = "pending"
-  SUCCESS = "success"
-  ERROR = "error"
+from pydantic_ai_chat_ui.tools import DataPartState, ToolMessages, get_tool_message
 
 
 @enum.verify(enum.UNIQUE)
