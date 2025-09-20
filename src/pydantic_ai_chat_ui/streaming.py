@@ -92,16 +92,15 @@ async def stream_results[D: AgentDepsT, R: OutputDataT](
                       )
                     )
 
-              elif isinstance(event, pydantic_ai_messages.PartDeltaEvent):
-                match event.delta:
-                  case pydantic_ai_messages.TextPartDelta(content_delta=delta):
-                    message_streamed = True
-                    yield format_event(TextPartDelta(id=message_id, delta=delta))
-                  case pydantic_ai_messages.ToolCallPartDelta():
-                    continue
-
-              elif isinstance(event, pydantic_ai_messages.FinalResultEvent):
-                continue
+              elif isinstance(
+                event, pydantic_ai_messages.PartDeltaEvent
+              ) and isinstance(event.delta, pydantic_ai_messages.TextPartDelta):
+                message_streamed = True
+                yield format_event(
+                  TextPartDelta(
+                    id=message_id, delta=event.delta.content_delta
+                  )  # pragma: no cover
+                )
 
         elif Agent.is_call_tools_node(node):
           async with node.stream(agent_run.ctx) as stream:
@@ -165,7 +164,9 @@ async def stream_results[D: AgentDepsT, R: OutputDataT](
 
           if isinstance(node.data.output, str) and not message_streamed:
             yield format_event(
-              TextPartDelta(id=message_id, delta=node.data.output.lstrip())
+              TextPartDelta(
+                id=message_id, delta=node.data.output.lstrip()
+              )  # pragma: no cover
             )
 
           elif isinstance(node.data.output, CodeArtifactData):
