@@ -9,7 +9,12 @@ from pydantic_ai.output import OutputDataT
 from pydantic_ai.result import FinalResult
 from pydantic_ai.tools import AgentDepsT
 
-from pydantic_ai_chat_ui.messages import ArtifactType, DataPartState, UIMessage
+from pydantic_ai_chat_ui.messages import (
+  ArtifactType,
+  DataPartState,
+  UIMessage,
+  from_ui_message,
+)
 from pydantic_ai_chat_ui.streamed_messages import (
   ArtifactPart,
   ChatEvent,
@@ -51,7 +56,7 @@ async def stream_results[D: AgentDepsT, R: OutputDataT](
 
   try:
     async with agent.iter(
-      user_message,
+      from_ui_message(user_message),
       deps=deps,
       message_history=message_history,
     ) as agent_run:
@@ -84,10 +89,8 @@ async def stream_results[D: AgentDepsT, R: OutputDataT](
                       EventPart(
                         id=tool_call_id,
                         data=ChatEvent(
-                          data={
-                            "title": title,
-                            "status": DataPartState.PENDING,
-                          }
+                          title=title,
+                          status=DataPartState.PENDING,
                         ),
                       )
                     )
@@ -113,12 +116,10 @@ async def stream_results[D: AgentDepsT, R: OutputDataT](
                     EventPart(
                       id=part.tool_call_id,
                       data=ChatEvent(
-                        data={
-                          "title": get_tool_message(
-                            part.tool_name, DataPartState.PENDING, tool_messages
-                          ),
-                          "status": DataPartState.PENDING,
-                        }
+                        title=get_tool_message(
+                          part.tool_name, DataPartState.PENDING, tool_messages
+                        ),
+                        status=DataPartState.PENDING,
                       ),
                     )
                   )
@@ -132,12 +133,10 @@ async def stream_results[D: AgentDepsT, R: OutputDataT](
                     EventPart(
                       id=tool_call_id,
                       data=ChatEvent(
-                        data={
-                          "title": get_tool_message(
-                            result.tool_name, DataPartState.SUCCESS, tool_messages
-                          ),
-                          "status": DataPartState.SUCCESS,
-                        }
+                        title=get_tool_message(
+                          result.tool_name, DataPartState.SUCCESS, tool_messages
+                        ),
+                        status=DataPartState.SUCCESS,
                       ),
                     )
                   )
@@ -149,12 +148,10 @@ async def stream_results[D: AgentDepsT, R: OutputDataT](
               EventPart(
                 id=node.data.tool_call_id,
                 data=ChatEvent(
-                  data={
-                    "title": get_tool_message(
-                      node.data.tool_name, DataPartState.SUCCESS, tool_messages
-                    ),
-                    "status": DataPartState.SUCCESS,
-                  }
+                  title=get_tool_message(
+                    node.data.tool_name, DataPartState.SUCCESS, tool_messages
+                  ),
+                  status=DataPartState.SUCCESS,
                 ),
               )
             )
@@ -211,11 +208,9 @@ async def stream_results[D: AgentDepsT, R: OutputDataT](
         EventPart(
           id=tool_id,
           data=ChatEvent(
-            data={
-              "title": get_tool_message(tool_name, DataPartState.ERROR, tool_messages),
-              "status": DataPartState.ERROR,
-              # TODO: with optional args/data
-            }
+            title=get_tool_message(tool_name, DataPartState.ERROR, tool_messages),
+            status=DataPartState.ERROR,
+            # TODO: with optional args/data
           ),
         )
       )

@@ -4,6 +4,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from pydantic_ai_chat_ui.messages import ArtifactType
+from pydantic_ai_chat_ui.tools import DataPartState
 
 
 @enum.verify(enum.UNIQUE)
@@ -62,9 +63,10 @@ class FileData(BaseModel):
 
 class Artifact[T, K: str](BaseModel):
   model_config = ConfigDict(populate_by_name=True)
-  created_at: int = Field(alias="createdAt")
+
   type: K
   data: T
+  created_at: int  # timestamp
 
 
 class CodeArtifactData(BaseModel):
@@ -85,7 +87,8 @@ class SourceData(BaseModel):
 
 
 class ChatEvent(BaseModel):
-  data: dict[str, Any]
+  title: str
+  status: DataPartState
 
 
 class SuggestedQuestionsData(BaseModel):

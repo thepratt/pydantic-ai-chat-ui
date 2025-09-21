@@ -7,7 +7,7 @@ import enum
 import uuid
 from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pydantic_ai import messages as pydantic_ai_messages
 
 from pydantic_ai_chat_ui.tools import DataPartState, ToolMessages, get_tool_message
@@ -40,7 +40,7 @@ class ArtifactType(enum.StrEnum):
 
 class MessagePartBase(BaseModel):
   type: str
-  id: str
+  id: str = Field(default_factory=lambda: str(uuid.uuid4()))
 
 
 class TextPart(MessagePartBase):
@@ -67,9 +67,9 @@ class FileData(BaseModel):
 
 
 class Artifact[T, K: str](BaseModel):
-  created_at: int
   type: K
   data: T
+  created_at: int  # timestamp
 
 
 class CodeArtifactData(BaseModel):
@@ -90,7 +90,8 @@ class SourceData(BaseModel):
 
 
 class ChatEvent(BaseModel):
-  data: dict[str, Any]
+  title: str
+  status: DataPartState
 
 
 class SuggestedQuestionsData(BaseModel):
@@ -144,25 +145,29 @@ class UIMessage(BaseModel):
   parts: list[UIMessagePart]
 
 
-def from_ui_message(message: UIMessage) -> pydantic_ai_messages.ModelRequest | None:
+def from_ui_message(message: UIMessage) -> pydantic_ai_messages.UserContent | None:
   """
   This is limited to supporting user-driven submissions. Longer sets of model
   messages should be loaded from your store of choice and included as message
   history, or a pydantic ai agnostic memory augmentation like mem0.
+
+  Only text formats are handled, no multi-modal support.
   """
   if message.role != MessageRole.USER:
     return None
 
-  parts: list[pydantic_ai_messages.ModelRequestPart] = []
-
+  texts: list[str] = []
   for part in message.parts:
     if isinstance(part, TextPart):
-      parts.append(pydantic_ai_messages.UserPromptPart(content=part.text))
+      texts.append(part.text)
 
-  if not parts:
-    parts.append(pydantic_ai_messages.UserPromptPart(content=""))
+  if not texts:
+    return ""
 
-  return pydantic_ai_messages.ModelRequest(parts=parts)
+  if len(texts) == 1:
+    return texts[0]
+
+  return "\n\n".join(texts)
 
 
 def from_pydantic_ai_message(
@@ -186,12 +191,8 @@ def from_pydantic_ai_message(
           event = EventPart(
             id=tool_call_id,
             data=ChatEvent(
-              data={
-                "title": get_tool_message(
-                  tool_name, DataPartState.SUCCESS, tool_messages
-                ),
-                "status": DataPartState.SUCCESS,
-              },
+              title=get_tool_message(tool_name, DataPartState.SUCCESS, tool_messages),
+              status=DataPartState.SUCCESS,
             ),
           )
           message_parts.append(event)
@@ -200,12 +201,8 @@ def from_pydantic_ai_message(
           event = EventPart(
             id=str(uuid.uuid4()),
             data=ChatEvent(
-              data={
-                "title": get_tool_message(
-                  tool_name, DataPartState.ERROR, tool_messages
-                ),
-                "status": DataPartState.ERROR,
-              }
+              title=get_tool_message(tool_name, DataPartState.ERROR, tool_messages),
+              status=DataPartState.ERROR,
             ),
           )
           message_parts.append(event)
@@ -222,12 +219,10 @@ def from_pydantic_ai_message(
         event = EventPart(
           id=part.tool_call_id,
           data=ChatEvent(
-            data={
-              "title": get_tool_message(
-                part.tool_name, DataPartState.PENDING, tool_messages
-              ),
-              "status": DataPartState.PENDING,
-            },
+            title=get_tool_message(
+              part.tool_name, DataPartState.PENDING, tool_messages
+            ),
+            status=DataPartState.PENDING,
           ),
         )
         message_parts.append(event)
@@ -237,12 +232,10 @@ def from_pydantic_ai_message(
         event = EventPart(
           id=part.tool_call_id,
           data=ChatEvent(
-            data={
-              "title": get_tool_message(
-                part.tool_name, DataPartState.SUCCESS, tool_messages
-              ),
-              "status": DataPartState.SUCCESS,
-            },
+            title=get_tool_message(
+              part.tool_name, DataPartState.SUCCESS, tool_messages
+            ),
+            status=DataPartState.SUCCESS,
           ),
         )
         message_parts.append(event)

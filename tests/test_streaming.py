@@ -3,6 +3,7 @@ import json
 import pytest
 from pydantic_ai import Agent
 from pydantic_ai.models.test import TestModel
+from pydantic_ai.tools import Tool
 
 from pydantic_ai_chat_ui.messages import DataPartState, MessageRole, TextPart, UIMessage
 from pydantic_ai_chat_ui.streamed_messages import (
@@ -53,9 +54,6 @@ async def test_stream_results_text_only_with_test_model():
 
 @pytest.mark.asyncio
 async def test_stream_results_tool_events_with_test_model_and_custom_messages():
-  # Create a real tool with no arguments
-  from pydantic_ai.tools import Tool
-
   def hello() -> str:
     return "hello"
 
@@ -85,10 +83,10 @@ async def test_stream_results_tool_events_with_test_model_and_custom_messages():
 
   payloads = [json.loads(c[len("data: ") : -2]) for c in chunks]
   events = [p for p in payloads if p.get("type") == "data-event"]
-  statuses = [e["data"]["data"]["status"] for e in events]
+  statuses = [e["data"]["status"] for e in events]
   assert DataPartState.PENDING in statuses and DataPartState.SUCCESS in statuses
   # Also ensure custom messages appeared at least once
-  all_titles = [e["data"]["data"].get("title") for e in events]
+  all_titles = [e["data"].get("title") for e in events]
   assert "Start" in all_titles and "Done" in all_titles
 
 
@@ -128,9 +126,6 @@ async def test_stream_results_artifacts_with_output_type():
 
 @pytest.mark.asyncio
 async def test_stream_results_error_and_error_event_with_raising_tool():
-  # Tool that raises to trigger error path while a tool is active
-  from pydantic_ai.tools import Tool
-
   def bad() -> str:
     raise RuntimeError("boom")
 
@@ -157,7 +152,7 @@ async def test_stream_results_error_and_error_event_with_raising_tool():
   # Expect a pending event for bad, an error event for bad, and an error part
   payloads = [json.loads(c[len("data: ") : -2]) for c in chunks]
   events = [p for p in payloads if p.get("type") == "data-event"]
-  statuses = [e["data"]["data"]["status"] for e in events]
+  statuses = [e["data"]["status"] for e in events]
   assert "pending" in statuses and "error" in statuses
   assert any(p.get("type") == "error" for p in payloads)
 

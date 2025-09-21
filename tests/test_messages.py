@@ -20,6 +20,21 @@ def test_from_model_request_user_prompt_to_ui_text():
   assert ui.parts[0].text == "hello"
 
 
+def test_ui_message_part_id_is_auto_generated_when_missing():
+  # Simulate incoming request body without part id
+  body = {
+    "id": "u-1",
+    "role": "user",
+    "parts": [
+      {"type": "text", "text": "hello world"},
+    ],
+  }
+  ui = ui_messages.UIMessage.model_validate(body)
+  assert isinstance(ui.parts[0], ui_messages.TextPart)
+  # id should be populated
+  assert isinstance(ui.parts[0].id, str) and len(ui.parts[0].id) > 0
+
+
 def test_from_model_response_text_to_ui_text():
   msg = pa.ModelResponse(parts=[pa.TextPart(content="world")])
   ui = ui_messages.from_pydantic_ai_message(msg)
@@ -41,8 +56,8 @@ def test_tool_call_and_return_to_events_with_status_and_titles():
   resp = pa.ModelResponse(parts=[pa.ToolCallPart(tool_call_id="tc1", tool_name="tool")])
   ui1 = ui_messages.from_pydantic_ai_message(resp, tool_messages)
   evt1 = next(p for p in ui1.parts if isinstance(p, EventPart))
-  assert evt1.data.data["status"] == DataPartState.PENDING
-  assert evt1.data.data["title"] == "Calling it"
+  assert evt1.data.status == DataPartState.PENDING
+  assert evt1.data.title == "Calling it"
 
   resp2 = pa.ModelResponse(
     parts=[
@@ -51,8 +66,8 @@ def test_tool_call_and_return_to_events_with_status_and_titles():
   )
   ui2 = ui_messages.from_pydantic_ai_message(resp2, tool_messages)
   evt2 = next(p for p in ui2.parts if isinstance(p, EventPart))
-  assert evt2.data.data["status"] == DataPartState.SUCCESS
-  assert evt2.data.data["title"] == "Did it"
+  assert evt2.data.status == DataPartState.SUCCESS
+  assert evt2.data.title == "Did it"
 
 
 def test_tool_result_on_request_and_retry_error_event():
@@ -63,14 +78,14 @@ def test_tool_result_on_request_and_retry_error_event():
   )
   ui_req = ui_messages.from_pydantic_ai_message(req, tool_messages)
   evt = next(p for p in ui_req.parts if isinstance(p, EventPart))
-  assert evt.data.data["status"] == DataPartState.SUCCESS
+  assert evt.data.status == DataPartState.SUCCESS
 
   req_retry = pa.ModelRequest(
     parts=[pa.RetryPromptPart(tool_name="tool", content="retry")]
   )
   ui_retry = ui_messages.from_pydantic_ai_message(req_retry, tool_messages)
   evt_r = next(p for p in ui_retry.parts if isinstance(p, EventPart))
-  assert evt_r.data.data["status"] == DataPartState.ERROR
+  assert evt_r.data.status == DataPartState.ERROR
 
 
 def test_empty_parts_fallback_to_empty_text():
@@ -81,17 +96,14 @@ def test_empty_parts_fallback_to_empty_text():
   assert ui.parts[0].text == ""
 
 
-def test_from_ui_message_single_text_to_model_request():
+def test_from_ui_message_single_text_to_user_content():
   user_ui = ui_messages.UIMessage(
     id="u",
     role=ui_messages.MessageRole.USER,
     parts=[ui_messages.TextPart(id="p", text="hello")],
   )
-  req = ui_messages.from_ui_message(user_ui)
-  assert isinstance(req, pa.ModelRequest)
-  assert len(req.parts) == 1
-  assert isinstance(req.parts[0], pa.UserPromptPart)
-  assert req.parts[0].content == "hello"
+  content = ui_messages.from_ui_message(user_ui)
+  assert content == "hello"
 
 
 def test_from_ui_message_multiple_text_parts():
@@ -103,9 +115,8 @@ def test_from_ui_message_multiple_text_parts():
       ui_messages.TextPart(id="p2", text="world"),
     ],
   )
-  req = ui_messages.from_ui_message(user_ui)
-  assert len(req.parts) == 2
-  assert [p.content for p in req.parts] == ["hello", "world"]
+  content = ui_messages.from_ui_message(user_ui)
+  assert content == "hello\n\nworld"
 
 
 def test_from_ui_message_ignores_non_text_and_falls_back_empty():
@@ -113,13 +124,14 @@ def test_from_ui_message_ignores_non_text_and_falls_back_empty():
     id="u",
     role=ui_messages.MessageRole.USER,
     parts=[
-      ui_messages.EventPart(id="e", data=ui_messages.ChatEvent(data={"x": 1})),
+      ui_messages.EventPart(
+        id="e",
+        data=ui_messages.ChatEvent(title="X", status=ui_messages.DataPartState.PENDING),
+      ),
     ],
   )
-  req = ui_messages.from_ui_message(user_ui)
-  assert len(req.parts) == 1
-  assert isinstance(req.parts[0], pa.UserPromptPart)
-  assert req.parts[0].content == ""
+  content = ui_messages.from_ui_message(user_ui)
+  assert content == ""
 
 
 def test_from_ui_message_mixed_parts_order_preserved():
@@ -129,30 +141,33 @@ def test_from_ui_message_mixed_parts_order_preserved():
     role=ui_messages.MessageRole.USER,
     parts=[
       ui_messages.TextPart(id="t1", text="one"),
-      ui_messages.EventPart(id="e1", data=ui_messages.ChatEvent(data={"x": 1})),
+      ui_messages.EventPart(
+        id="e1",
+        data=ui_messages.ChatEvent(title="X", status=ui_messages.DataPartState.PENDING),
+      ),
       ui_messages.TextPart(id="t2", text="two"),
     ],
   )
-  req = ui_messages.from_ui_message(user_ui)
-  assert [p.content for p in req.parts] == ["one", "two"]
+  content = ui_messages.from_ui_message(user_ui)
+  assert content == "one\n\ntwo"
 
 
 def test_from_ui_message_empty_parts_fallback_only_once():
-  # No parts -> exactly one empty prompt part
+  # No parts -> empty string
   user_ui = ui_messages.UIMessage(id="u", role=ui_messages.MessageRole.USER, parts=[])
-  req = ui_messages.from_ui_message(user_ui)
-  assert len(req.parts) == 1 and req.parts[0].content == ""
+  content = ui_messages.from_ui_message(user_ui)
+  assert content == ""
 
 
 def test_from_ui_message_text_empty_string_kept_no_extra():
-  # An explicit empty text becomes one empty prompt (not two)
+  # An explicit empty text becomes empty content
   user_ui = ui_messages.UIMessage(
     id="u",
     role=ui_messages.MessageRole.USER,
     parts=[ui_messages.TextPart(id="t", text="")],
   )
-  req = ui_messages.from_ui_message(user_ui)
-  assert len(req.parts) == 1 and req.parts[0].content == ""
+  content = ui_messages.from_ui_message(user_ui)
+  assert content == ""
 
 
 def test_from_ui_message_ignores_file_and_sources():
@@ -170,8 +185,8 @@ def test_from_ui_message_ignores_file_and_sources():
     role=ui_messages.MessageRole.USER,
     parts=[file_part, ui_messages.TextPart(id="t", text="use this"), sources_part],
   )
-  req = ui_messages.from_ui_message(user_ui)
-  assert len(req.parts) == 1 and req.parts[0].content == "use this"
+  content = ui_messages.from_ui_message(user_ui)
+  assert content == "use this"
 
 
 def test_from_ui_message_non_user_returns_none():
