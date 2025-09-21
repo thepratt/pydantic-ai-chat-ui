@@ -1,7 +1,7 @@
 import json
 
-from pydantic_ai_chat_ui.messages import ArtifactType
-from pydantic_ai_chat_ui.streamed_messages import (
+from pydantic_ai_chat_ui.messages.shared import ArtifactType
+from pydantic_ai_chat_ui.messages.streamed import (
   ArtifactPart,
   CodeArtifact,
   CodeArtifactData,

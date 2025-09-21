@@ -10,6 +10,14 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 from pydantic_ai import messages as pydantic_ai_messages
 
+from pydantic_ai_chat_ui.messages.shared import (
+  Artifact,
+  ArtifactType,
+  CodeArtifactData,
+  DocumentArtifactData,
+  FileData,
+  SourceData,
+)
 from pydantic_ai_chat_ui.tools import DataPartState, ToolMessages, get_tool_message
 
 
@@ -32,12 +40,6 @@ class PartType(enum.StrEnum):
   SUGGESTIONS = "data-suggested_questions"
 
 
-@enum.verify(enum.UNIQUE)
-class ArtifactType(enum.StrEnum):
-  CODE = "code"
-  DOCUMENT = "document"
-
-
 class MessagePartBase(BaseModel):
   type: str
   id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -57,36 +59,6 @@ class DataPart[T](MessagePartBase):
   type: str  # Must start with 'data-'
   data: T
   id: str
-
-
-class FileData(BaseModel):
-  name: str
-  url: str
-  type: str
-  size: int
-
-
-class Artifact[T, K: str](BaseModel):
-  type: K
-  data: T
-  created_at: int  # timestamp
-
-
-class CodeArtifactData(BaseModel):
-  file_name: str
-  code: str
-  language: str
-
-
-class DocumentArtifactData(BaseModel):
-  title: str
-  content: str
-  type: str
-  sources: list[dict[str, str]] | None = None
-
-
-class SourceData(BaseModel):
-  sources: list[dict[str, Any]]
 
 
 class ChatEvent(BaseModel):

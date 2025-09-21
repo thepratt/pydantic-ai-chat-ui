@@ -1,6 +1,6 @@
 import pytest
 
-from pydantic_ai_chat_ui.messages import DataPartState
+from pydantic_ai_chat_ui.messages.full import DataPartState
 from pydantic_ai_chat_ui.tools import get_tool_message
 
 

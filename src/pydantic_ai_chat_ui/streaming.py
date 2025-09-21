@@ -9,13 +9,13 @@ from pydantic_ai.output import OutputDataT
 from pydantic_ai.result import FinalResult
 from pydantic_ai.tools import AgentDepsT
 
-from pydantic_ai_chat_ui.messages import (
+from pydantic_ai_chat_ui.messages.full import (
   ArtifactType,
   DataPartState,
   UIMessage,
   from_ui_message,
 )
-from pydantic_ai_chat_ui.streamed_messages import (
+from pydantic_ai_chat_ui.messages.streamed import (
   ArtifactPart,
   ChatEvent,
   CodeArtifact,

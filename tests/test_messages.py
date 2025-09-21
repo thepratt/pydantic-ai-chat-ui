@@ -1,7 +1,7 @@
 from pydantic_ai import messages as pa
 
-import pydantic_ai_chat_ui.messages as ui_messages
-from pydantic_ai_chat_ui.messages import (
+from pydantic_ai_chat_ui.messages import full as ui_messages
+from pydantic_ai_chat_ui.messages.full import (
   DataPartState,
   EventPart,
   MessageRole,

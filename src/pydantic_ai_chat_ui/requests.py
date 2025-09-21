@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-from pydantic_ai_chat_ui.messages import UIMessage
+from pydantic_ai_chat_ui.messages.full import UIMessage
 
 
 class ChatRequest[U](BaseModel):

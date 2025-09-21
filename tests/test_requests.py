@@ -1,6 +1,6 @@
 import uuid
 
-from pydantic_ai_chat_ui.messages import MessageRole, TextPart, UIMessage
+from pydantic_ai_chat_ui.messages.full import MessageRole, TextPart, UIMessage
 from pydantic_ai_chat_ui.requests import ChatRequest
 
 

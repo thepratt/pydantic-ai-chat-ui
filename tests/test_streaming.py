@@ -5,8 +5,13 @@ from pydantic_ai import Agent
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import Tool
 
-from pydantic_ai_chat_ui.messages import DataPartState, MessageRole, TextPart, UIMessage
-from pydantic_ai_chat_ui.streamed_messages import (
+from pydantic_ai_chat_ui.messages.full import (
+  DataPartState,
+  MessageRole,
+  TextPart,
+  UIMessage,
+)
+from pydantic_ai_chat_ui.messages.streamed import (
   CodeArtifactData,
   DocumentArtifactData,
   TextPartDelta,
