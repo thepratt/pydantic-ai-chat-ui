@@ -144,6 +144,27 @@ class UIMessage(BaseModel):
   parts: list[UIMessagePart]
 
 
+def from_ui_message(message: UIMessage) -> pydantic_ai_messages.ModelRequest | None:
+  """
+  This is limited to supporting user-driven submissions. Longer sets of model
+  messages should be loaded from your store of choice and included as message
+  history, or a pydantic ai agnostic memory augmentation like mem0.
+  """
+  if message.role != MessageRole.USER:
+    return None
+
+  parts: list[pydantic_ai_messages.ModelRequestPart] = []
+
+  for part in message.parts:
+    if isinstance(part, TextPart):
+      parts.append(pydantic_ai_messages.UserPromptPart(content=part.text))
+
+  if not parts:
+    parts.append(pydantic_ai_messages.UserPromptPart(content=""))
+
+  return pydantic_ai_messages.ModelRequest(parts=parts)
+
+
 def from_pydantic_ai_message(
   message: pydantic_ai_messages.ModelMessage,
   tool_messages: ToolMessages | None = None,
