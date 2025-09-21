@@ -16,6 +16,7 @@ jobs:
 
       - uses: astral-sh/setup-uv@v3
       - run: uv sync
+      - run: uv build
       - run: uv run ruff check
       - run: uv run ruff format --check
       - run: uv run pytest --cov=pydantic_ai_chat_ui --cov-report=term-missing -q
